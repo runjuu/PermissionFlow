@@ -1315,6 +1315,24 @@ This is **not** a claim that access was granted or that a restart is definitely
 required. Passive checks cannot establish that distinction. No screen capture
 or permission request is performed by polling.
 
+To place the tip across the full width below a settings row, disable the button's
+inline hint and add `PermissionFlowRestartHint` as a sibling. It uses the same
+monitor and localized copy, with 12-point explanatory text:
+
+```swift
+VStack(alignment: .leading, spacing: 8) {
+    HStack {
+        Text("Screen recording permission")
+        Spacer()
+        PermissionFlowButton(pane: .screenRecording, showsRestartHint: false)
+    }
+    PermissionFlowRestartHint(pane: .screenRecording)
+}
+```
+
+When using a separate hint, pass any `onRestartRequested` callback to the hint.
+Existing buttons continue to show the hint inline by default.
+
 Hosts can optionally supply their own safe relaunch implementation:
 
 ```swift

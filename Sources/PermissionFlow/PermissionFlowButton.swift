@@ -8,6 +8,7 @@ public struct PermissionFlowButton: View {
     @Environment(\.locale) var locale
     @StateObject private var controller: PermissionFlowController
     @ObservedObject private var monitor: PermissionStatusMonitor
+    private let showsRestartHint: Bool
     private let onRestartRequested: (@MainActor @Sendable () -> Void)?
     @State private var buttonState: PermissionFlowButtonState
     private let pane: PermissionFlowPane
@@ -19,10 +20,12 @@ public struct PermissionFlowButton: View {
         title: LocalizedStringResource? = nil,
         pane: PermissionFlowPane,
         suggestedAppURLs: [URL] = [],
-        configuration: PermissionFlowConfiguration = .init()
+        configuration: PermissionFlowConfiguration = .init(),
+        showsRestartHint: Bool = true
     ) {
         _controller = StateObject(wrappedValue: PermissionFlowController(configuration: configuration))
         self.monitor = PermissionStatusMonitor.shared(for: pane)
+        self.showsRestartHint = showsRestartHint
         self.onRestartRequested = configuration.onRestartRequested
         self.pane = pane
         self.suggestedAppURLs = suggestedAppURLs
@@ -37,10 +40,12 @@ public struct PermissionFlowButton: View {
         pane: PermissionFlowPane,
         suggestedAppURLs: [URL] = [],
         configuration: PermissionFlowConfiguration = .init(),
+        showsRestartHint: Bool = true,
         @ViewBuilder label: @escaping (PermissionFlowButtonState) -> Label
     ) {
         _controller = StateObject(wrappedValue: PermissionFlowController(configuration: configuration))
         self.monitor = PermissionStatusMonitor.shared(for: pane)
+        self.showsRestartHint = showsRestartHint
         self.onRestartRequested = configuration.onRestartRequested
         self.pane = pane
         self.suggestedAppURLs = suggestedAppURLs
@@ -71,22 +76,11 @@ public struct PermissionFlowButton: View {
             .onReceive(monitor.$state) { state in
                 buttonState = PermissionFlowButtonState.make(from: state)
             }
-            if monitor.shouldSuggestRestart {
-                Text(PermissionFlowLocalizer.string(
-                    "permission_flow.screen_recording.restart_hint",
-                    defaultValue: "If you’ve enabled Screen Recording, quit and reopen this app to finish applying it.",
-                    localeIdentifier: locale.identifier
-                ))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                if let onRestartRequested {
-                    Button(PermissionFlowLocalizer.string(
-                        "permission_flow.button.quit_and_reopen",
-                        defaultValue: "Quit and Reopen",
-                        localeIdentifier: locale.identifier
-                    ), action: onRestartRequested)
-                }
+            if showsRestartHint {
+                PermissionFlowRestartHint(
+                    pane: pane,
+                    onRestartRequested: onRestartRequested
+                )
             }
         }
     }
