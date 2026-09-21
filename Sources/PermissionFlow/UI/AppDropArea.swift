@@ -74,7 +74,7 @@ final class AppDragSourceView: NSView, NSDraggingSource {
 
     override var intrinsicContentSize: NSSize {
         let fitting = hostingView.fittingSize
-        return NSSize(width: NSView.noIntrinsicMetric, height: max(88, fitting.height))
+        return NSSize(width: NSView.noIntrinsicMetric, height: fitting.height)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -176,28 +176,25 @@ private struct AppDragCardContent: View {
     let localeIdentifier: String?
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                 .resizable()
-                .frame(width: 32, height: 32)
-                .cornerRadius(10)
+                .scaledToFit()
+                .frame(width: 48, height: 48)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(url.deletingPathExtension().lastPathComponent)
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(.primary)
-            }
+            Text(url.deletingPathExtension().lastPathComponent)
+                .font(.system(size: 16, weight: .regular))
+                .foregroundStyle(.primary)
             Spacer()
-            VStack(spacing: 0) {
+            VStack(spacing: 4) {
                 Image(systemName: "hand.draw")
                     .font(.system(size: 14, weight: .regular))
                 Text(dragLabel)
-                    .font(.system(size: 8, weight: .light))
+                    .font(.system(size: 10, weight: .regular))
             }
             .foregroundStyle(.secondary)
-            .padding(.trailing, 6)
         }
-        .padding(6)
+        .padding(12)
         .background(.background.opacity(0.65), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
