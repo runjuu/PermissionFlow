@@ -19,12 +19,10 @@ final class FloatingDropPanel: NSPanel {
     private let minimumPanelHeight: CGFloat = 96
     private let sizingHeightLimit: CGFloat = 4096
 
-    /// Launch animation constants tuned to feel responsive without making the
-    /// panel overshoot or jitter while the target window is still settling.
+    /// Gives the unfolding mesh time to travel while Settings settles.
     private let animationDuration: TimeInterval = 0.72
-    private let animationResponse: Double = 0.72
-    private let initialAlpha: CGFloat = 0.9
-    private let minimumLaunchScale: CGFloat = 0.58
+    private var launchOverlay: PanelLaunchAnimation?
+    private var waitingTimer: Timer?
     private var launchTimer: Timer?
     private var launchStartTime: CFTimeInterval = 0
     private var launchFromFrame = NSRect.zero
@@ -45,7 +43,7 @@ final class FloatingDropPanel: NSPanel {
             defer: false
         )
 
-        level = .floating
+        level = .screenSaver
         isReleasedWhenClosed = false
         isOpaque = false
         backgroundColor = .clear
@@ -53,7 +51,7 @@ final class FloatingDropPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         isMovableByWindowBackground = false
         hidesOnDeactivate = false
-        animationBehavior = .utilityWindow
+        animationBehavior = .none
 
         hostingView.translatesAutoresizingMaskIntoConstraints = false
         // Prevent the hosting view from pushing its SwiftUI layout size back
@@ -123,39 +121,51 @@ final class FloatingDropPanel: NSPanel {
         orderFrontRegardless()
     }
 
-    /// Displays the panel at the source frame used to start the launch motion.
-    /// This is used before the target System Settings frame is known.
+    /// Waits for Settings geometry without showing a full-size panel at the button.
     func show(at sourceFrameInScreen: CGRect) {
         stopLaunchAnimation()
-        isAnimatingLaunch = false
-        alphaValue = 1
-        setContentSize(CGSize(width: frame.width, height: measuredPanelHeight(for: frame.width)))
-        setFrame(launchSourceFrame(for: sourceFrameInScreen), display: false)
-        orderFrontRegardless()
+        orderOut(nil)
+        // Tracking can be unavailable (for example, before Accessibility is
+        // granted). Keep the guidance usable even without a destination frame.
+        let timer = Timer(timeInterval: 1, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.waitingTimer != nil else { return }
+                self.waitingTimer = nil
+                self.center()
+                self.show()
+            }
+        }
+        waitingTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
-    /// Animates the panel from the triggering UI element toward the current
-    /// System Settings window frame once the destination becomes available.
+    /// Unfurls a snapshot from the button while the live content keeps its final layout.
     func present(from sourceFrameInScreen: CGRect, to settingsFrame: CGRect) {
         stopLaunchAnimation()
-        let targetFrame = targetFrame(for: settingsFrame)
+        let target = targetFrame(for: settingsFrame)
+        setFrame(target, display: false)
+        hostingView.layoutSubtreeIfNeeded()
 
-        guard sourceFrameInScreen.isEmpty == false else {
-            isAnimatingLaunch = false
+        guard !sourceFrameInScreen.isEmpty,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
             alphaValue = 1
-            setFrame(targetFrame, display: false)
             orderFrontRegardless()
             return
         }
 
+        hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+        let image = NSImage(size: hostingView.bounds.size)
+        image.addRepresentation(bitmap)
+        launchFromFrame = sourceFrameInScreen
+        launchToFrame = target
+        let overlay = PanelLaunchAnimation(image: image, source: sourceFrameInScreen, target: target)
+        launchOverlay = overlay
         isAnimatingLaunch = true
-        launchFromFrame = launchSourceFrame(for: sourceFrameInScreen)
-        launchToFrame = targetFrame
         launchStartTime = CACurrentMediaTime()
-        alphaValue = initialAlpha
-        setFrame(launchFromFrame, display: false)
+        alphaValue = 0
         orderFrontRegardless()
-        stepLaunchAnimation()
+        overlay.orderFrontRegardless()
 
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -166,16 +176,17 @@ final class FloatingDropPanel: NSPanel {
         launchTimer = timer
     }
 
+    override func close() {
+        stopLaunchAnimation()
+        super.close()
+    }
+
     /// Switches the panel into a drag-friendly mode where mouse events pass
     /// through so System Settings can receive the drop destination interaction.
     func setDraggingPassthrough(_ isDragging: Bool) {
         ignoresMouseEvents = isDragging
         alphaValue = isDragging ? 0.72 : 1.0
-        if isDragging {
-            orderBack(nil)
-        } else {
-            orderFrontRegardless()
-        }
+        orderFrontRegardless()
     }
 
     /// Repositions the panel under the latest tracked System Settings frame.
@@ -241,22 +252,6 @@ final class FloatingDropPanel: NSPanel {
         return CGRect(origin: origin, size: CGSize(width: width, height: height))
     }
 
-    /// Builds the starting frame for the launch animation around the source UI
-    /// element that initiated the permission flow.
-    private func launchSourceFrame(for sourceFrameInScreen: CGRect) -> CGRect {
-        let launchSize = CGSize(
-            width: max(sourceFrameInScreen.width, frame.width * minimumLaunchScale),
-            height: max(sourceFrameInScreen.height, frame.height * minimumLaunchScale)
-        )
-        let center = CGPoint(x: sourceFrameInScreen.midX, y: sourceFrameInScreen.midY)
-        return CGRect(
-            x: center.x - (launchSize.width * 0.5),
-            y: center.y - (launchSize.height * 0.5),
-            width: launchSize.width,
-            height: launchSize.height
-        )
-    }
-
     /// Measures the SwiftUI content at a specific width so the panel height can
     /// fit its dynamic contents before being positioned or animated.
     private func measuredPanelHeight(for width: CGFloat) -> CGFloat {
@@ -268,68 +263,29 @@ final class FloatingDropPanel: NSPanel {
         return max(minimumPanelHeight, ceil(sizingView.fittingSize.height))
     }
 
-    /// Advances the current launch animation frame-by-frame until the panel
-    /// reaches its destination under the System Settings window.
+    /// Tracking may move the destination while Settings is opening.
     private func stepLaunchAnimation() {
-        let elapsed = max(0, CACurrentMediaTime() - launchStartTime)
-        if elapsed >= animationDuration {
-            isAnimatingLaunch = false
-            stopLaunchAnimation()
-            alphaValue = 1
+        guard isAnimatingLaunch else { return }
+        let progress = min(1, max(0, (CACurrentMediaTime() - launchStartTime) / animationDuration))
+        if progress >= 1 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             setFrame(launchToFrame, display: true)
+            alphaValue = 1
+            orderFrontRegardless()
+            stopLaunchAnimation()
             return
         }
-
-        let progress = springProgress(at: elapsed)
-        alphaValue = initialAlpha + ((1 - initialAlpha) * progress)
-        setFrame(curvedFrame(from: launchFromFrame, to: launchToFrame, progress: progress), display: true)
+        launchOverlay?.update(source: launchFromFrame, target: launchToFrame, progress: progress)
     }
 
-    /// Stops and clears the timer that drives the launch animation.
     private func stopLaunchAnimation() {
+        waitingTimer?.invalidate()
+        waitingTimer = nil
         launchTimer?.invalidate()
         launchTimer = nil
-    }
-
-    /// Produces a smooth eased progress value for the launch motion so the
-    /// panel accelerates and settles without a harsh linear stop.
-    private func springProgress(at elapsed: TimeInterval) -> CGFloat {
-        let omega = (2 * Double.pi) / animationResponse
-        let progress = 1 - exp(-omega * elapsed) * (1 + (omega * elapsed))
-        return min(max(progress, 0), 1)
-    }
-
-    /// Interpolates the animated frame along a quadratic Bezier path between
-    /// the source and destination rectangles for a softer "fly in" effect.
-    private func curvedFrame(from: CGRect, to: CGRect, progress: CGFloat) -> CGRect {
-        // A quadratic Bezier curve gives the panel a softer "fly to target"
-        // motion than a straight linear interpolation.
-        let size = CGSize(
-            width: from.width + ((to.width - from.width) * progress),
-            height: from.height + ((to.height - from.height) * progress)
-        )
-
-        let startCenter = CGPoint(x: from.midX, y: from.midY)
-        let endCenter = CGPoint(x: to.midX, y: to.midY)
-        let midpoint = CGPoint(
-            x: (startCenter.x + endCenter.x) * 0.5,
-            y: max(startCenter.y, endCenter.y)
-        )
-        let distance = hypot(endCenter.x - startCenter.x, endCenter.y - startCenter.y)
-        let lift = min(140, max(44, distance * 0.18))
-        let controlPoint = CGPoint(x: midpoint.x, y: midpoint.y + lift)
-        let inverse = 1 - progress
-        let center = CGPoint(
-            x: (inverse * inverse * startCenter.x) + (2 * inverse * progress * controlPoint.x) + (progress * progress * endCenter.x),
-            y: (inverse * inverse * startCenter.y) + (2 * inverse * progress * controlPoint.y) + (progress * progress * endCenter.y)
-        )
-
-        return CGRect(
-            x: center.x - (size.width * 0.5),
-            y: center.y - (size.height * 0.5),
-            width: size.width,
-            height: size.height
-        )
+        isAnimatingLaunch = false
+        launchOverlay?.close()
+        launchOverlay = nil
+        alphaValue = 1
     }
 
     private static func makePanelView(

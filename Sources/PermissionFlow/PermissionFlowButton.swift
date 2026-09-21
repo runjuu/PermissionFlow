@@ -6,6 +6,7 @@ import SwiftUI
 @available(macOS 13.0, *)
 public struct PermissionFlowButton: View {
     @Environment(\.locale) var locale
+    @State private var sourceAnchor = PermissionButtonSourceAnchor()
     @StateObject private var controller: PermissionFlowController
     @ObservedObject private var monitor: PermissionStatusMonitor
     private let showsRestartHint: Bool
@@ -72,6 +73,7 @@ public struct PermissionFlowButton: View {
                     }
                 }
             }
+            .background(PermissionButtonSourceView(anchor: sourceAnchor))
             .onAppear(perform: refreshAuthorizationStatus)
             .onReceive(monitor.$state) { state in
                 buttonState = PermissionFlowButtonState.make(from: state)
@@ -102,11 +104,10 @@ public struct PermissionFlowButton: View {
         }
     }
 
-    /// Uses the exact click location as the launch point so the panel appears
-    /// to fly out from where the user pressed the button.
-    private func clickSourceFrameInScreen() -> CGRect {
-        let mouse = NSEvent.mouseLocation
-        return CGRect(x: mouse.x - 16, y: mouse.y - 16, width: 32, height: 32)
+    /// Reads the actual button bounds for both mouse and keyboard activation.
+    private func buttonFrameInScreen() -> CGRect? {
+        guard let view = sourceAnchor.view, let window = view.window else { return nil }
+        return window.convertToScreen(view.convert(view.bounds, to: nil))
     }
 
     private func authorize() {
@@ -125,7 +126,7 @@ public struct PermissionFlowButton: View {
             controller.authorize(
                 pane: pane,
                 suggestedAppURLs: suggestedAppURLs,
-                sourceFrameInScreen: clickSourceFrameInScreen()
+                sourceFrameInScreen: buttonFrameInScreen()
             )
         }
     }
@@ -195,6 +196,25 @@ public struct PermissionFlowButton: View {
     private func refreshAuthorizationStatus() {
         let authState = monitor.refresh()
         buttonState = PermissionFlowButtonState.make(from: authState)
+    }
+}
+
+@MainActor
+private final class PermissionButtonSourceAnchor {
+    weak var view: NSView?
+}
+
+private struct PermissionButtonSourceView: NSViewRepresentable {
+    let anchor: PermissionButtonSourceAnchor
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        anchor.view = view
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        anchor.view = nsView
     }
 }
 #endif
