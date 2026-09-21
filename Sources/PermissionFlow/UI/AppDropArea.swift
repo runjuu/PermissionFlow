@@ -195,9 +195,9 @@ private struct AppDragCardContent: View {
             .foregroundStyle(.secondary)
         }
         .padding(12)
-        .background(.background.opacity(0.65), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(.background.opacity(0.65), in: RoundedRectangle(cornerRadius: PermissionFlowPanelLayout.cardCornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: PermissionFlowPanelLayout.cardCornerRadius, style: .continuous)
                 .stroke(.primary.opacity(0.085), style: StrokeStyle(lineWidth: 1, dash: []))
         )
     }
