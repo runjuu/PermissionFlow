@@ -181,6 +181,8 @@ private struct AppDragCardContent: View {
                 .resizable()
                 .scaledToFit()
                 .frame(width: 48, height: 48)
+                // Compensate for the transparent inset in macOS app icons.
+                .padding(-4)
 
             Text(url.deletingPathExtension().lastPathComponent)
                 .font(.system(size: 16, weight: .regular))

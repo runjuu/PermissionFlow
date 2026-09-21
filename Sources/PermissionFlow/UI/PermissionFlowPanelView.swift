@@ -123,35 +123,19 @@ struct PermissionFlowPanelView: View {
 private struct HeaderDirectionIcon: View {
     let isDragging: Bool
 
-    @State private var wigglePhase = false
-    @State private var scalePhase = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Image(systemName: "arrowshape.up.fill")
             .font(.system(size: 14, weight: .bold))
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(.tint)
-            .rotationEffect(.degrees(isDragging ? 0 : (wigglePhase ? 12 : -12)))
-            .offset(y: isDragging ? 0 : (wigglePhase ? -2 : 1))
-            .scaleEffect(isDragging ? (scalePhase ? 1.18 : 0.88) : 1)
+            .offset(y: isDragging && !reduceMotion ? -2 : 0)
             .animation(
-                isDragging
-                    ? .easeInOut(duration: 0.68).repeatForever(autoreverses: true)
-                    : .easeInOut(duration: 0.22).repeatForever(autoreverses: true),
-                value: isDragging ? scalePhase : wigglePhase
+                reduceMotion ? nil : .easeInOut(duration: 0.18),
+                value: isDragging
             )
-            .onAppear {
-                wigglePhase = true
-            }
-            .onChange(of: isDragging) { dragging in
-                if dragging {
-                    scalePhase = true
-                    wigglePhase = false
-                } else {
-                    scalePhase = false
-                    wigglePhase = true
-                }
-            }
+            .accessibilityHidden(true)
     }
 }
 #endif
