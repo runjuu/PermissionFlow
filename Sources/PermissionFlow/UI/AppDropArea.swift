@@ -176,7 +176,7 @@ private struct AppDragCardContent: View {
     let localeIdentifier: String?
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: PermissionFlowPanelLayout.spacing) {
             Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
                 .resizable()
                 .scaledToFit()
@@ -194,7 +194,7 @@ private struct AppDragCardContent: View {
             }
             .foregroundStyle(.secondary)
         }
-        .padding(12)
+        .padding(PermissionFlowPanelLayout.spacing)
         .background(.background.opacity(0.65), in: RoundedRectangle(cornerRadius: PermissionFlowPanelLayout.cardCornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: PermissionFlowPanelLayout.cardCornerRadius, style: .continuous)

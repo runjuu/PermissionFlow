@@ -1,11 +1,11 @@
 #if os(macOS)
 import SwiftUI
 
-/// Keeps the nested card corners aligned with the panel's horizontal inset.
+/// Keeps the nested card corners aligned with the panel's inset.
 enum PermissionFlowPanelLayout {
     static let cornerRadius: CGFloat = 18
-    static let horizontalPadding: CGFloat = 12
-    static let cardCornerRadius = cornerRadius - horizontalPadding
+    static let spacing: CGFloat = 8
+    static let cardCornerRadius = cornerRadius - spacing
 }
 
 @available(macOS 13.0, *)
@@ -13,7 +13,7 @@ struct PermissionFlowPanelView: View {
     @ObservedObject var controller: PermissionFlowController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: PermissionFlowPanelLayout.spacing) {
             header
             if let primaryApp = controller.preferredAppURL {
                 AppDragItemView(
@@ -25,8 +25,7 @@ struct PermissionFlowPanelView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, PermissionFlowPanelLayout.horizontalPadding)
+        .padding(PermissionFlowPanelLayout.spacing)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)
         .background(
