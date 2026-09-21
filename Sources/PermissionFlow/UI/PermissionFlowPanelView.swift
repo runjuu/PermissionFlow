@@ -6,7 +6,7 @@ struct PermissionFlowPanelView: View {
     @ObservedObject var controller: PermissionFlowController
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
             header
             if let primaryApp = controller.preferredAppURL {
                 AppDragItemView(
@@ -18,17 +18,16 @@ struct PermissionFlowPanelView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.vertical, 16)
         .padding(.horizontal, 12)
         .frame(maxWidth: .infinity, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)
         .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(.primary.opacity(0.14), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .strokeBorder(.primary.opacity(0.14), lineWidth: 1)
                 )
         )
     }
