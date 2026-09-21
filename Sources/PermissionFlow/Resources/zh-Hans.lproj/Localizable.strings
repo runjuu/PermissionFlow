@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "已授权";
 "permission_flow.button.open" = "打开";
 "permission_flow.button.checking" = "检查中...";
+
+"permission_flow.screen_recording.restart_hint" = "如果您已启用屏幕录制，请退出并重新打开此应用以使权限生效。";
+"permission_flow.button.quit_and_reopen" = "退出并重新打开";

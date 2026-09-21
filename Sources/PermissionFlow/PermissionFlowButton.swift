@@ -7,6 +7,8 @@ import SwiftUI
 public struct PermissionFlowButton: View {
     @Environment(\.locale) var locale
     @StateObject private var controller: PermissionFlowController
+    @ObservedObject private var monitor: PermissionStatusMonitor
+    private let onRestartRequested: (@MainActor @Sendable () -> Void)?
     @State private var buttonState: PermissionFlowButtonState
     private let pane: PermissionFlowPane
     private let suggestedAppURLs: [URL]
@@ -20,6 +22,8 @@ public struct PermissionFlowButton: View {
         configuration: PermissionFlowConfiguration = .init()
     ) {
         _controller = StateObject(wrappedValue: PermissionFlowController(configuration: configuration))
+        self.monitor = PermissionStatusMonitor.shared(for: pane)
+        self.onRestartRequested = configuration.onRestartRequested
         self.pane = pane
         self.suggestedAppURLs = suggestedAppURLs
         self.title = title
@@ -36,6 +40,8 @@ public struct PermissionFlowButton: View {
         @ViewBuilder label: @escaping (PermissionFlowButtonState) -> Label
     ) {
         _controller = StateObject(wrappedValue: PermissionFlowController(configuration: configuration))
+        self.monitor = PermissionStatusMonitor.shared(for: pane)
+        self.onRestartRequested = configuration.onRestartRequested
         self.pane = pane
         self.suggestedAppURLs = suggestedAppURLs
         self.title = nil
@@ -46,23 +52,42 @@ public struct PermissionFlowButton: View {
     }
 
     public var body: some View {
-        Button {
-            authorize()
-        } label: {
-            if let customLabel {
-                customLabel(buttonState)
-            } else {
-                Label {
-                    buttonTitleLabel
-                } icon: {
-                    Image(systemName: buttonState.systemImage)
-                        .foregroundColor(buttonState.isGranted ? .green : .primary)
+        VStack(alignment: .leading, spacing: 4) {
+            Button {
+                authorize()
+            } label: {
+                if let customLabel {
+                    customLabel(buttonState)
+                } else {
+                    Label {
+                        buttonTitleLabel
+                    } icon: {
+                        Image(systemName: buttonState.systemImage)
+                            .foregroundColor(buttonState.isGranted ? .green : .primary)
+                    }
                 }
             }
-        }
-        .onAppear(perform: refreshAuthorizationStatus)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            refreshAuthorizationStatus()
+            .onAppear(perform: refreshAuthorizationStatus)
+            .onReceive(monitor.$state) { state in
+                buttonState = PermissionFlowButtonState.make(from: state)
+            }
+            if monitor.shouldSuggestRestart {
+                Text(PermissionFlowLocalizer.string(
+                    "permission_flow.screen_recording.restart_hint",
+                    defaultValue: "If you’ve enabled Screen Recording, quit and reopen this app to finish applying it.",
+                    localeIdentifier: locale.identifier
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                if let onRestartRequested {
+                    Button(PermissionFlowLocalizer.string(
+                        "permission_flow.button.quit_and_reopen",
+                        defaultValue: "Quit and Reopen",
+                        localeIdentifier: locale.identifier
+                    ), action: onRestartRequested)
+                }
+            }
         }
     }
 
@@ -174,8 +199,7 @@ public struct PermissionFlowButton: View {
     }
 
     private func refreshAuthorizationStatus() {
-        let provider = PermissionStatusRegistry.provider(for: pane)
-        let authState = provider.authorizationState()
+        let authState = monitor.refresh()
         buttonState = PermissionFlowButtonState.make(from: authState)
     }
 }

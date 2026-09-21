@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "ممنوح";
 "permission_flow.button.open" = "فتح";
 "permission_flow.button.checking" = "جاري التحقق...";
+
+"permission_flow.screen_recording.restart_hint" = "إذا كنت قد فعّلت تسجيل الشاشة، فأنهِ هذا التطبيق وافتحه مجددًا لتطبيق التغيير.";
+"permission_flow.button.quit_and_reopen" = "إنهاء وإعادة فتح";

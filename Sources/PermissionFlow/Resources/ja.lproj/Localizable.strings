@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "許可済み";
 "permission_flow.button.open" = "開く";
 "permission_flow.button.checking" = "確認中...";
+
+"permission_flow.screen_recording.restart_hint" = "画面収録を有効にした場合は、このアプリを終了して再度開き、変更を適用してください。";
+"permission_flow.button.quit_and_reopen" = "終了して再度開く";

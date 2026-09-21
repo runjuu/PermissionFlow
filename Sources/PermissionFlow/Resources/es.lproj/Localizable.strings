@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "Concedido";
 "permission_flow.button.open" = "Abrir";
 "permission_flow.button.checking" = "Verificando...";
+
+"permission_flow.screen_recording.restart_hint" = "Si has activado la grabación de pantalla, cierra y vuelve a abrir esta app para aplicar el cambio.";
+"permission_flow.button.quit_and_reopen" = "Cerrar y volver a abrir";

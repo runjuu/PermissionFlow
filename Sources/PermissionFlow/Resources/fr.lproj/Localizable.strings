@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "Autorisé";
 "permission_flow.button.open" = "Ouvrir";
 "permission_flow.button.checking" = "Vérification...";
+
+"permission_flow.screen_recording.restart_hint" = "Si vous avez activé l’enregistrement de l’écran, quittez puis rouvrez cette app pour appliquer la modification.";
+"permission_flow.button.quit_and_reopen" = "Quitter et rouvrir";

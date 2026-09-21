@@ -15,13 +15,18 @@ public struct PermissionFlowConfiguration: Sendable {
     /// environment to override localization.
     public var localeIdentifier: String?
 
+    /// The host owns saving work and relaunching. No automatic termination occurs.
+    public var onRestartRequested: (@MainActor @Sendable () -> Void)?
+
     public init(
         requiredAppURLs: [URL] = [],
         promptForAccessibilityTrust: Bool = false,
-        localeIdentifier: String? = nil
+        localeIdentifier: String? = nil,
+        onRestartRequested: (@MainActor @Sendable () -> Void)? = nil
     ) {
         self.requiredAppURLs = requiredAppURLs
         self.promptForAccessibilityTrust = promptForAccessibilityTrust
+        self.onRestartRequested = onRestartRequested
         self.localeIdentifier = localeIdentifier
     }
 }

@@ -1290,3 +1290,48 @@ The repository includes an `Example` macOS app that demonstrates all supported p
 ## License
 
 Licensed under the MIT License.
+
+
+### Observing permission changes (macOS)
+
+`PermissionFlowButton` and host features can share a passive monitor:
+
+```swift
+@ObservedObject private var screenPermission =
+    PermissionStatusMonitor.shared(for: .screenRecording)
+```
+
+Register the appropriate status provider as usual. Call `refresh()` before a
+protected operation; observe `state` for UI updates and still handle permission
+errors from the operation itself. The monitor does not persist permission grants.
+It refreshes when the button appears and whenever the app becomes active.
+Authorization flows poll once per second, including while System Settings is
+frontmost, until granted, closed, or a two-minute timeout. Subsequent activation
+checks continue after polling stops, including checks for revoked access.
+
+For Screen Recording, returning from an authorization attempt with a negative
+check exposes `shouldSuggestRestart` and displays conditional restart guidance.
+This is **not** a claim that access was granted or that a restart is definitely
+required. Passive checks cannot establish that distinction. No screen capture
+or permission request is performed by polling.
+
+Hosts can optionally supply their own safe relaunch implementation:
+
+```swift
+PermissionFlowButton(
+    pane: .screenRecording,
+    configuration: .init(onRestartRequested: {
+        // Save work and relaunch using the host application's lifecycle.
+    })
+)
+```
+
+The callback adds a “Quit and Reopen” action alongside the hint. PermissionFlow
+never terminates or relaunches the host itself. This guidance concerns the running
+host process, not other applications dragged into the floating panel.
+
+To validate real macOS behavior, use a consistently signed host app: grant access
+while leaving System Settings frontmost, return with access still denied, relaunch
+after granting, and revoke previously granted access. Verify both the displayed
+state and the host's protected operation. Unit tests simulate status transitions;
+they do not establish whether a particular macOS version requires relaunching.

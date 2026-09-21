@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "허용됨";
 "permission_flow.button.open" = "열기";
 "permission_flow.button.checking" = "확인 중...";
+
+"permission_flow.screen_recording.restart_hint" = "화면 기록을 활성화했다면 이 앱을 종료한 후 다시 열어 변경 사항을 적용하세요.";
+"permission_flow.button.quit_and_reopen" = "종료 후 다시 열기";

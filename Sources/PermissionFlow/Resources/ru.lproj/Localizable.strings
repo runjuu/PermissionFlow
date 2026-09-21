@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "Разрешено";
 "permission_flow.button.open" = "Открыть";
 "permission_flow.button.checking" = "Проверка...";
+
+"permission_flow.screen_recording.restart_hint" = "Если вы разрешили запись экрана, завершите работу приложения и откройте его снова, чтобы изменение вступило в силу.";
+"permission_flow.button.quit_and_reopen" = "Завершить и открыть снова";

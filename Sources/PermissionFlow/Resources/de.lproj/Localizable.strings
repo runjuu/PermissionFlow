@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "Erlaubt";
 "permission_flow.button.open" = "Öffnen";
 "permission_flow.button.checking" = "Überprüfung...";
+
+"permission_flow.screen_recording.restart_hint" = "Wenn du die Bildschirmaufnahme aktiviert hast, beende diese App und öffne sie erneut, damit die Änderung wirksam wird.";
+"permission_flow.button.quit_and_reopen" = "Beenden und erneut öffnen";

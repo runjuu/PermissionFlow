@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "Granted";
 "permission_flow.button.open" = "Open";
 "permission_flow.button.checking" = "Checking...";
+
+"permission_flow.screen_recording.restart_hint" = "If you’ve enabled Screen Recording, quit and reopen this app to finish applying it.";
+"permission_flow.button.quit_and_reopen" = "Quit and Reopen";

@@ -32,6 +32,8 @@ public final class PermissionFlowController: ObservableObject {
     private let configuration: PermissionFlowConfiguration
     private let tracker = SettingsWindowTracker()
 
+    private var authorizationAttempt: (monitor: PermissionStatusMonitor, token: UUID)?
+
     private var panel: FloatingDropPanel?
     private var pendingLaunchSourceFrame: CGRect?
     private var previousFrontmostApplicationPID: pid_t?
@@ -46,6 +48,21 @@ public final class PermissionFlowController: ObservableObject {
         updateFrontmostAppState()
         bindTrackerCallbacks()
         observeFrontmostApplication()
+        NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { @Sendable [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, let pane = self.currentPane,
+                          !pane.supportsFloatingAuthorizationPanel else { return }
+                    self.endAuthorizationMonitoring()
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    deinit {
+        if let attempt = authorizationAttempt {
+            Task { @MainActor in attempt.monitor.endAuthorization(attempt.token) }
+        }
     }
 
     /// Opens the requested privacy pane and starts the floating guidance flow.
@@ -69,7 +86,10 @@ public final class PermissionFlowController: ObservableObject {
         closeOtherActivePanelIfNeeded()
 
         rememberPreviousFrontmostApplication()
+        endAuthorizationMonitoring()
         currentPane = pane
+        let monitor = PermissionStatusMonitor.shared(for: pane)
+        authorizationAttempt = (monitor, monitor.beginAuthorization())
         pendingLaunchSourceFrame = sourceFrameInScreen
         mergeDroppedApps(with: suggestedAppURLs)
         SystemSettings.open(url: pane.settingsURL)
@@ -104,6 +124,7 @@ public final class PermissionFlowController: ObservableObject {
     }
 
     public func closePanel(returnToPreviousApp: Bool = false) {
+        endAuthorizationMonitoring()
         tracker.stopTracking()
         panel?.close()
         panel = nil
@@ -115,6 +136,13 @@ public final class PermissionFlowController: ObservableObject {
 
         if returnToPreviousApp {
             reactivatePreviousFrontmostApplication()
+        }
+    }
+
+    private func endAuthorizationMonitoring() {
+        if let attempt = authorizationAttempt {
+            attempt.monitor.endAuthorization(attempt.token)
+            authorizationAttempt = nil
         }
     }
 

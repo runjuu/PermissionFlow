@@ -20,3 +20,6 @@
 "permission_flow.button.granted" = "已授權";
 "permission_flow.button.open" = "開啟";
 "permission_flow.button.checking" = "檢查中...";
+
+"permission_flow.screen_recording.restart_hint" = "如果您已啟用螢幕錄製，請結束並重新開啟此 App，讓權限生效。";
+"permission_flow.button.quit_and_reopen" = "結束並重新開啟";
