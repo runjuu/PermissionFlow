@@ -37,7 +37,10 @@ struct PermissionFlowPanelView: View {
     /// Keeps the header logic isolated from the drag card layout.
     private var header: some View {
         HStack(alignment: .top, spacing: 3) {
-            HeaderDirectionIcon(isDragging: controller.isDraggingApp)
+            HeaderDirectionIcon(
+                isDragging: controller.isDraggingApp,
+                isPresentationComplete: controller.isPanelPresentationComplete
+            )
             Text(headerTitle).font(.system(size: 14))
             Spacer()
             HStack(alignment: .top, spacing: 3) {
@@ -122,19 +125,46 @@ struct PermissionFlowPanelView: View {
 @available(macOS 13.0, *)
 private struct HeaderDirectionIcon: View {
     let isDragging: Bool
+    let isPresentationComplete: Bool
 
+    @State private var attentionOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var shouldAnimateAttention: Bool {
+        isPresentationComplete && !isDragging && !reduceMotion
+    }
 
     var body: some View {
         Image(systemName: "arrowshape.up.fill")
             .font(.system(size: 14, weight: .bold))
             .symbolRenderingMode(.hierarchical)
             .foregroundStyle(.tint)
-            .offset(y: isDragging && !reduceMotion ? -2 : 0)
+            .offset(y: reduceMotion ? 0 : (isDragging ? -2 : attentionOffset))
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 0.18),
                 value: isDragging
             )
+            .task(id: shouldAnimateAttention) {
+                attentionOffset = 0
+                guard shouldAnimateAttention else { return }
+                do {
+                    // Let the live panel settle after the launch overlay is removed.
+                    try await Task.sleep(for: .milliseconds(180))
+                    for _ in 0..<2 {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            attentionOffset = -3
+                        }
+                        try await Task.sleep(for: .milliseconds(200))
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            attentionOffset = 0
+                        }
+                        try await Task.sleep(for: .milliseconds(340))
+                    }
+                } catch {
+                    // The replacement task resets the offset when dragging,
+                    // dismissal, or Reduce Motion cancels this cue.
+                }
+            }
             .accessibilityHidden(true)
     }
 }

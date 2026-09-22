@@ -21,6 +21,9 @@ public final class PermissionFlowController: ObservableObject {
     /// Drives the visibility of the "reopen settings" action.
     @Published var isSettingsFrontmost = false
 
+    /// Enables the attention cue only after the live panel reaches its destination.
+    @Published var isPanelPresentationComplete = false
+
     /// Drives the header icon animation while the app card is being dragged.
     @Published var isDraggingApp = false
 

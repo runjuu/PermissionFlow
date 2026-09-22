@@ -119,10 +119,12 @@ final class FloatingDropPanel: NSPanel {
     /// Shows the panel at its current frame without any positioning changes.
     func show() {
         orderFrontRegardless()
+        panelController?.isPanelPresentationComplete = true
     }
 
     /// Waits for Settings geometry without showing a full-size panel at the button.
     func show(at sourceFrameInScreen: CGRect) {
+        panelController?.isPanelPresentationComplete = false
         stopLaunchAnimation()
         orderOut(nil)
         // Tracking can be unavailable (for example, before Accessibility is
@@ -141,6 +143,7 @@ final class FloatingDropPanel: NSPanel {
 
     /// Unfurls a snapshot from the button while the live content keeps its final layout.
     func present(from sourceFrameInScreen: CGRect, to settingsFrame: CGRect) {
+        panelController?.isPanelPresentationComplete = false
         stopLaunchAnimation()
         let target = targetFrame(for: settingsFrame)
         setFrame(target, display: false)
@@ -150,7 +153,7 @@ final class FloatingDropPanel: NSPanel {
               !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
               let bitmap = hostingView.bitmapImageRepForCachingDisplay(in: hostingView.bounds) else {
             alphaValue = 1
-            orderFrontRegardless()
+            show()
             return
         }
 
@@ -188,6 +191,7 @@ final class FloatingDropPanel: NSPanel {
     }
 
     override func close() {
+        panelController?.isPanelPresentationComplete = false
         stopLaunchAnimation()
         super.close()
     }
@@ -214,7 +218,7 @@ final class FloatingDropPanel: NSPanel {
 
         stopLaunchAnimation()
         setFrame(target, display: false)
-        orderFrontRegardless()
+        show()
     }
 
     /// Calculates the final panel frame relative to the System Settings window.
@@ -283,6 +287,7 @@ final class FloatingDropPanel: NSPanel {
             alphaValue = 1
             orderFrontRegardless()
             stopLaunchAnimation()
+            panelController?.isPanelPresentationComplete = true
             return
         }
         launchOverlay?.update(source: launchFromFrame, target: launchToFrame, progress: progress)

@@ -27,6 +27,7 @@ struct PanelLaunchTimingTests {
         // Delay the renderer longer than the entire launch duration.
         try await Task.sleep(for: .seconds(1))
         #expect(panel.alphaValue == 0)
+        #expect(!controller.isPanelPresentationComplete)
         #expect(overlay.isVisible)
         #expect(overlay.alphaValue == 0)
 
@@ -35,8 +36,10 @@ struct PanelLaunchTimingTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(overlay.alphaValue == 1)
         #expect(panel.alphaValue == 0)
+        #expect(!controller.isPanelPresentationComplete)
         try await Task.sleep(for: .seconds(1))
         #expect(panel.alphaValue == 1)
+        #expect(controller.isPanelPresentationComplete)
         #expect(!overlay.isVisible)
     }
 
@@ -62,6 +65,7 @@ struct PanelLaunchTimingTests {
         #expect(overlay.alphaValue == 1)
         try await Task.sleep(for: .seconds(1))
         #expect(panel.alphaValue == 1)
+        #expect(controller.isPanelPresentationComplete)
         #expect(!overlay.isVisible)
     }
 
@@ -108,6 +112,17 @@ struct PanelLaunchTimingTests {
     private func windowIndex(_ window: NSWindow) throws -> Int {
         let windows = try #require(CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]])
         return try #require(windows.firstIndex { ($0[kCGWindowNumber as String] as? Int) == window.windowNumber })
+    }
+
+    @Test
+    func directPresentationEnablesCueAndClosingResetsIt() {
+        let controller = PermissionFlowController()
+        let panel = FloatingDropPanel(controller: controller)
+        #expect(!controller.isPanelPresentationComplete)
+        panel.show()
+        #expect(controller.isPanelPresentationComplete)
+        panel.close()
+        #expect(!controller.isPanelPresentationComplete)
     }
 
     @Test
