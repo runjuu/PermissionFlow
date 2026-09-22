@@ -28,11 +28,38 @@ struct PanelLaunchTimingTests {
         try await Task.sleep(for: .seconds(1))
         #expect(panel.alphaValue == 0)
         #expect(overlay.isVisible)
+        #expect(overlay.alphaValue == 0)
 
         // Deliver the rendering lifecycle callback, then allow the clock to run.
         scene.didFinishUpdate()
-        await Task.yield()
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(overlay.alphaValue == 1)
         #expect(panel.alphaValue == 0)
+        try await Task.sleep(for: .seconds(1))
+        #expect(panel.alphaValue == 1)
+        #expect(!overlay.isVisible)
+    }
+
+    @Test
+    func transparentOverlayReceivesItsFirstFrameAndCompletesLaunch() async throws {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        let controller = PermissionFlowController()
+        let panel = FloatingDropPanel(controller: controller)
+        defer { panel.close() }
+        let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
+        panel.present(
+            from: CGRect(x: 100, y: 400, width: 100, height: 32),
+            to: CGRect(x: 200, y: 300, width: 800, height: 500)
+        )
+        let overlay = try #require(NSApp.windows.first { $0 is PanelLaunchAnimation && !existingWindows.contains(ObjectIdentifier($0)) })
+        #expect(overlay.alphaValue == 0)
+        // Use SpriteKit's real rendering callback: a transparent window must
+        // still render, otherwise waiting for its first frame would deadlock.
+        for _ in 0..<100 {
+            if overlay.alphaValue == 1 { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(overlay.alphaValue == 1)
         try await Task.sleep(for: .seconds(1))
         #expect(panel.alphaValue == 1)
         #expect(!overlay.isVisible)
@@ -58,6 +85,8 @@ struct PanelLaunchTimingTests {
         // Exercise ordering without relying on animation ticks to repair it.
         let view = try #require(overlay.contentView as? SKView)
         view.isPaused = true
+        overlay.alphaValue = 1
+        overlay.orderFrontRegardless()
         for (center, notification) in [
             (NSWorkspace.shared.notificationCenter, NSWorkspace.didActivateApplicationNotification),
             (NotificationCenter.default, NSApplication.didResignActiveNotification)
@@ -98,6 +127,8 @@ struct PanelLaunchTimingTests {
             source: CGRect(x: 0, y: 0, width: 100, height: 32),
             target: CGRect(x: 100, y: 100, width: 300, height: 100)
         )
+        #expect(!overlay.isVisible)
+        #expect(overlay.alphaValue == 0)
         let view = try #require(overlay.contentView as? SKView)
         let scene = try #require(view.scene)
         var called = false

@@ -166,6 +166,8 @@ final class FloatingDropPanel: NSPanel {
             // Hop out of SpriteKit's rendering callback before changing windows.
             Task { @MainActor [weak self, weak overlay] in
                 guard let self, let overlay, self.launchOverlay === overlay else { return }
+                overlay.alphaValue = 1
+                overlay.orderFrontRegardless()
                 self.startLaunchClock()
             }
         }

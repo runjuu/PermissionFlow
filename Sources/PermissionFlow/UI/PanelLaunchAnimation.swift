@@ -66,6 +66,8 @@ final class PanelLaunchAnimation: NSPanel {
         scene = PanelLaunchScene(size: canvas.size)
         animationView = SKView(frame: CGRect(origin: .zero, size: canvas.size))
         super.init(contentRect: canvas, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        // Ordering the window must not expose SpriteKit's uninitialized surface.
+        alphaValue = 0
         level = .screenSaver
         isOpaque = false
         backgroundColor = .clear
@@ -76,6 +78,7 @@ final class PanelLaunchAnimation: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         animationBehavior = .none
         animationView.allowsTransparency = true
+        animationView.isAsynchronous = false
         animationView.preferredFramesPerSecond = 60
         scene.backgroundColor = .clear
         scene.scaleMode = .resizeFill
@@ -109,7 +112,7 @@ final class PanelLaunchAnimation: NSPanel {
                 source: source, target: target, canvas: canvas, progress: progress
             )
         )
-        orderFrontRegardless()
+        if isVisible { orderFrontRegardless() }
     }
 
     /// Activation can reorder windows while the renderer or main run loop is
