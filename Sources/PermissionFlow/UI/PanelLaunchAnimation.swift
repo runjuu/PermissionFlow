@@ -32,13 +32,13 @@ enum PanelLaunchGeometry {
 @MainActor
 final class PanelLaunchAnimation: NSPanel {
     private let sprite: SKSpriteNode
-    private let scene: SKScene
+    private let scene: PanelLaunchScene
     private let animationView: SKView
 
     init(image: NSImage, source: CGRect, target: CGRect) {
         let canvas = source.union(target).insetBy(dx: -2, dy: -2)
         sprite = SKSpriteNode(texture: SKTexture(image: image))
-        scene = SKScene(size: canvas.size)
+        scene = PanelLaunchScene(size: canvas.size)
         animationView = SKView(frame: CGRect(origin: .zero, size: canvas.size))
         super.init(contentRect: canvas, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         level = .screenSaver
@@ -62,6 +62,12 @@ final class PanelLaunchAnimation: NSPanel {
         animationView.presentScene(scene)
     }
 
+    /// Called once after SpriteKit has prepared its first frame.
+    var onFirstFrame: (() -> Void)? {
+        get { scene.onFirstFrame }
+        set { scene.onFirstFrame = newValue }
+    }
+
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
@@ -81,9 +87,22 @@ final class PanelLaunchAnimation: NSPanel {
     }
 
     override func close() {
+        scene.onFirstFrame = nil
         animationView.isPaused = true
         animationView.presentScene(nil)
         super.close()
+    }
+}
+
+@available(macOS 13.0, *)
+@MainActor
+final class PanelLaunchScene: SKScene {
+    var onFirstFrame: (() -> Void)?
+
+    override func didFinishUpdate() {
+        let callback = onFirstFrame
+        onFirstFrame = nil
+        callback?()
     }
 }
 #endif

@@ -162,11 +162,20 @@ final class FloatingDropPanel: NSPanel {
         let overlay = PanelLaunchAnimation(image: image, source: sourceFrameInScreen, target: target)
         launchOverlay = overlay
         isAnimatingLaunch = true
-        launchStartTime = CACurrentMediaTime()
+        overlay.onFirstFrame = { [weak self, weak overlay] in
+            // Hop out of SpriteKit's rendering callback before changing windows.
+            Task { @MainActor [weak self, weak overlay] in
+                guard let self, let overlay, self.launchOverlay === overlay else { return }
+                self.startLaunchClock()
+            }
+        }
         alphaValue = 0
         orderFrontRegardless()
         overlay.orderFrontRegardless()
+    }
 
+    private func startLaunchClock() {
+        launchStartTime = CACurrentMediaTime()
         let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.stepLaunchAnimation()

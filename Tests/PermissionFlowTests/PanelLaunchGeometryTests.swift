@@ -56,13 +56,17 @@ func floatingPanelStaysAboveOrdinaryWindowsWhileDragging() {
 @Test @MainActor
 func closingPanelCancelsLaunchOverlay() {
     let panel = FloatingDropPanel(controller: PermissionFlowController())
+    let existingWindows = Set(NSApp.windows.map(ObjectIdentifier.init))
     panel.present(
         from: CGRect(x: 100, y: 400, width: 100, height: 32),
         to: CGRect(x: 200, y: 300, width: 800, height: 500)
     )
+    let overlays = NSApp.windows.filter {
+        $0 is PanelLaunchAnimation && !existingWindows.contains(ObjectIdentifier($0))
+    }
     panel.close()
     #expect(!panel.isVisible)
-    #expect(!NSApp.windows.contains { $0 is PanelLaunchAnimation && $0.isVisible })
+    #expect(overlays.allSatisfy { !$0.isVisible })
 }
 
 @Test @MainActor
