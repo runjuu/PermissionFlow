@@ -8,8 +8,31 @@ import SpriteKit
 enum PanelLaunchGeometry {
     static let rows = 32
 
+    /// Reserve space for the arc as well as both endpoint rectangles.
+    static func canvas(source: CGRect, target: CGRect) -> CGRect {
+        let endpoints = source.union(target)
+        let bend = arcOffset(source: source, target: target)
+        return endpoints.union(endpoints.offsetBy(dx: bend.x, dy: bend.y)).insetBy(dx: -2, dy: -2)
+    }
+
+    /// Bend perpendicular to the travel direction, preferring an upward arc
+    /// (or a rightward arc for vertical travel). Short trips get a smaller bend.
+    private static func arcOffset(source: CGRect, target: CGRect) -> CGPoint {
+        let dx = target.midX - source.midX
+        let dy = target.midY - source.midY
+        let distance = hypot(dx, dy)
+        guard distance > 0 else { return .zero }
+        let height = min(140, distance * 0.18)
+        let direction: CGFloat = dx < 0 || (dx == 0 && dy > 0) ? -1 : 1
+        return CGPoint(x: -dy / distance * height * direction, y: dx / distance * height * direction)
+    }
+
     static func positions(source: CGRect, target: CGRect, canvas: CGRect, progress: Double) -> [SIMD2<Float>] {
         let progress = min(1, max(0, progress))
+        let travel = CGFloat(progress * progress * (3 - 2 * progress))
+        let arc = 4 * travel * (1 - travel)
+        let bend = arcOffset(source: source, target: target)
+        // Apply the same offset to every row so the curve cannot fold the mesh.
         return (0...rows).flatMap { row -> [SIMD2<Float>] in
             let fraction = CGFloat(row) / CGFloat(rows)
             let rank = target.midY >= source.midY ? 1 - fraction : fraction
@@ -21,8 +44,8 @@ enum PanelLaunchGeometry {
                 let x = source.minX + source.width * edge
                 let targetX = target.minX + target.width * edge
                 return SIMD2(
-                    Float((x + (targetX - x) * eased - canvas.minX) / canvas.width),
-                    Float((y + (targetY - y) * eased - canvas.minY) / canvas.height)
+                    Float((x + (targetX - x) * eased + bend.x * arc - canvas.minX) / canvas.width),
+                    Float((y + (targetY - y) * eased + bend.y * arc - canvas.minY) / canvas.height)
                 )
             }
         }
@@ -38,7 +61,7 @@ final class PanelLaunchAnimation: NSPanel {
     private var activationObservers = Set<AnyCancellable>()
 
     init(image: NSImage, source: CGRect, target: CGRect) {
-        let canvas = source.union(target).insetBy(dx: -2, dy: -2)
+        let canvas = PanelLaunchGeometry.canvas(source: source, target: target)
         sprite = SKSpriteNode(texture: SKTexture(image: image))
         scene = PanelLaunchScene(size: canvas.size)
         animationView = SKView(frame: CGRect(origin: .zero, size: canvas.size))
@@ -75,7 +98,7 @@ final class PanelLaunchAnimation: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func update(source: CGRect, target: CGRect, progress: Double) {
-        let canvas = source.union(target).insetBy(dx: -2, dy: -2)
+        let canvas = PanelLaunchGeometry.canvas(source: source, target: target)
         if frame != canvas { setFrame(canvas, display: false) }
         scene.size = canvas.size
         sprite.size = canvas.size

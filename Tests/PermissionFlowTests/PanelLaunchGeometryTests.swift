@@ -7,7 +7,7 @@ import Testing
 func launchMeshStartsAtButtonAndEndsAtPanel() {
     let source = CGRect(x: -800, y: 400, width: 120, height: 28)
     let target = CGRect(x: 200, y: 100, width: 500, height: 160)
-    let canvas = source.union(target)
+    let canvas = PanelLaunchGeometry.canvas(source: source, target: target)
     for (progress, expected) in [(0.0, source), (1.0, target)] {
         let positions = PanelLaunchGeometry.positions(source: source, target: target, canvas: canvas, progress: progress)
         for row in 0...PanelLaunchGeometry.rows {
@@ -26,7 +26,7 @@ func launchMeshStartsAtButtonAndEndsAtPanel() {
 func launchMeshRemainsOrderedAndInsideCanvas(verticalTravel: CGFloat) {
     let source = CGRect(x: -600, y: 100, width: 100, height: 32)
     let target = CGRect(x: 200, y: 100 + verticalTravel, width: 480, height: 160)
-    let canvas = source.union(target)
+    let canvas = PanelLaunchGeometry.canvas(source: source, target: target)
     for step in 0...100 {
         let positions = PanelLaunchGeometry.positions(source: source, target: target, canvas: canvas, progress: Double(step) / 100)
         for row in 0...PanelLaunchGeometry.rows {
@@ -38,6 +38,38 @@ func launchMeshRemainsOrderedAndInsideCanvas(verticalTravel: CGFloat) {
             if row > 0 { #expect(left.y > positions[(row - 1) * 2].y) }
         }
     }
+}
+
+@Test(arguments: [
+    CGPoint(x: 600, y: 0), CGPoint(x: -600, y: 0),
+    CGPoint(x: 0, y: 600), CGPoint(x: 0, y: -600),
+    CGPoint(x: 400, y: -400), CGPoint(x: -400, y: 400)
+])
+func launchMeshCurvesAwayFromDirectPath(travel: CGPoint) {
+    let source = CGRect(x: -300, y: 200, width: 120, height: 32)
+    let target = source.offsetBy(dx: travel.x, dy: travel.y)
+    let canvas = PanelLaunchGeometry.canvas(source: source, target: target)
+    let positions = PanelLaunchGeometry.positions(source: source, target: target, canvas: canvas, progress: 0.5)
+    let midpoint = positions[PanelLaunchGeometry.rows] // Left edge of the middle row.
+    let offset = CGPoint(
+        x: CGFloat(midpoint.x) * canvas.width + canvas.minX - (source.minX + travel.x / 2),
+        y: CGFloat(midpoint.y) * canvas.height + canvas.minY - (source.midY + travel.y / 2)
+    )
+    #expect(hypot(offset.x, offset.y) > 50)
+    #expect(abs(offset.x * travel.x + offset.y * travel.y) < 0.1)
+    for step in 0...100 {
+        let vertices = PanelLaunchGeometry.positions(source: source, target: target, canvas: canvas, progress: Double(step) / 100)
+        #expect(vertices.allSatisfy { $0.x >= 0 && $0.x <= 1 && $0.y >= 0 && $0.y <= 1 })
+    }
+}
+
+@Test
+func launchMeshDoesNotDetourWhenAlreadyAtDestination() {
+    let frame = CGRect(x: 100, y: 100, width: 400, height: 160)
+    let canvas = PanelLaunchGeometry.canvas(source: frame, target: frame)
+    let start = PanelLaunchGeometry.positions(source: frame, target: frame, canvas: canvas, progress: 0)
+    let middle = PanelLaunchGeometry.positions(source: frame, target: frame, canvas: canvas, progress: 0.5)
+    #expect(start == middle)
 }
 
 @Test @MainActor
