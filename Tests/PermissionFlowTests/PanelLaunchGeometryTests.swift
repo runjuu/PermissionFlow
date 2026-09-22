@@ -56,7 +56,9 @@ func launchMeshCurvesAwayFromDirectPath(travel: CGPoint) {
         y: CGFloat(midpoint.y) * canvas.height + canvas.minY - (source.midY + travel.y / 2)
     )
     #expect(hypot(offset.x, offset.y) > 50)
-    #expect(abs(offset.x * travel.x + offset.y * travel.y) < 0.1)
+    // Horizontal sweep is twice the perpendicular arc; vertical lift is unchanged.
+    #expect(abs(offset.x / 2 * travel.x + offset.y * travel.y) < 0.1)
+    if travel.y != 0 { #expect(abs(offset.x) > 100) }
     for step in 0...100 {
         let vertices = PanelLaunchGeometry.positions(source: source, target: target, canvas: canvas, progress: Double(step) / 100)
         #expect(vertices.allSatisfy { $0.x >= 0 && $0.x <= 1 && $0.y >= 0 && $0.y <= 1 })

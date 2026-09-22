@@ -15,8 +15,8 @@ enum PanelLaunchGeometry {
         return endpoints.union(endpoints.offsetBy(dx: bend.x, dy: bend.y)).insetBy(dx: -2, dy: -2)
     }
 
-    /// Bend perpendicular to the travel direction, preferring an upward arc
-    /// (or a rightward arc for vertical travel). Short trips get a smaller bend.
+    /// Start with an upward perpendicular arc (rightward for vertical travel),
+    /// then stretch its horizontal sweep. Short trips still get a smaller bend.
     private static func arcOffset(source: CGRect, target: CGRect) -> CGPoint {
         let dx = target.midX - source.midX
         let dy = target.midY - source.midY
@@ -24,7 +24,7 @@ enum PanelLaunchGeometry {
         guard distance > 0 else { return .zero }
         let height = min(140, distance * 0.18)
         let direction: CGFloat = dx < 0 || (dx == 0 && dy > 0) ? -1 : 1
-        return CGPoint(x: -dy / distance * height * direction, y: dx / distance * height * direction)
+        return CGPoint(x: -dy / distance * height * direction * 2, y: dx / distance * height * direction)
     }
 
     static func positions(source: CGRect, target: CGRect, canvas: CGRect, progress: Double) -> [SIMD2<Float>] {
