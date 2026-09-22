@@ -1,5 +1,6 @@
 #if os(macOS)
 import AppKit
+import Combine
 import SpriteKit
 
 /// A continuous mesh lets the leading edge unfold before the trailing edge,
@@ -34,6 +35,7 @@ final class PanelLaunchAnimation: NSPanel {
     private let sprite: SKSpriteNode
     private let scene: PanelLaunchScene
     private let animationView: SKView
+    private var activationObservers = Set<AnyCancellable>()
 
     init(image: NSImage, source: CGRect, target: CGRect) {
         let canvas = source.union(target).insetBy(dx: -2, dy: -2)
@@ -48,7 +50,7 @@ final class PanelLaunchAnimation: NSPanel {
         ignoresMouseEvents = true
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         animationBehavior = .none
         animationView.allowsTransparency = true
         animationView.preferredFramesPerSecond = 60
@@ -60,6 +62,7 @@ final class PanelLaunchAnimation: NSPanel {
         contentView = animationView
         update(source: source, target: target, progress: 0)
         animationView.presentScene(scene)
+        observeActivationChanges()
     }
 
     /// Called once after SpriteKit has prepared its first frame.
@@ -86,7 +89,23 @@ final class PanelLaunchAnimation: NSPanel {
         orderFrontRegardless()
     }
 
+    /// Activation can reorder windows while the renderer or main run loop is
+    /// still preparing the next animation frame. Restore the overlay immediately
+    /// after that handoff without making the panel key or activating its app.
+    private func observeActivationChanges() {
+        NSWorkspace.shared.notificationCenter
+            .publisher(for: NSWorkspace.didActivateApplicationNotification)
+            .merge(with: NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification))
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self, self.isVisible else { return }
+                self.orderFrontRegardless()
+            }
+            .store(in: &activationObservers)
+    }
+
     override func close() {
+        activationObservers.removeAll()
         scene.onFirstFrame = nil
         animationView.isPaused = true
         animationView.presentScene(nil)
