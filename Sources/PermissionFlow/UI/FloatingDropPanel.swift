@@ -19,8 +19,8 @@ final class FloatingDropPanel: NSPanel {
     private let minimumPanelHeight: CGFloat = 96
     private let sizingHeightLimit: CGFloat = 4096
 
-    /// Gives the unfolding mesh time to travel while Settings settles.
-    private let animationDuration: TimeInterval = 0.72
+    /// Keeps the unfolding effect brief so the guidance becomes usable promptly.
+    private let animationDuration: TimeInterval = 0.45
     private var launchOverlay: PanelLaunchAnimation?
     private var waitingTimer: Timer?
     private var launchTimer: Timer?
