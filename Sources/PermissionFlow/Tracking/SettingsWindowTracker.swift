@@ -26,6 +26,7 @@ final class SettingsWindowTracker {
     private var pollTimer: Timer?
     private var hasActiveTrackingTarget = false
     private var missingAppPollCount = 0
+    private var presentationReadiness = SettingsWindowReadiness()
 
     /// Starts locating the System Settings window and emitting frame updates.
     /// It can optionally prompt for Accessibility access so AX-based tracking
@@ -73,6 +74,7 @@ final class SettingsWindowTracker {
         currentFrame = nil
         hasActiveTrackingTarget = false
         missingAppPollCount = 0
+        presentationReadiness = SettingsWindowReadiness()
     }
 
     /// Triggers the macOS Accessibility permission prompt when requested by
@@ -84,11 +86,12 @@ final class SettingsWindowTracker {
     }
 
     /// Central tracking loop entry point.
-    /// It resolves the running System Settings app, emits a best-effort frame
-    /// from the window server immediately, and if AX is available, attaches
-    /// observers to the active window for continued updates.
+    /// Waits for an active, opaque window with settled geometry before emitting
+    /// the first frame. Subsequent move/resize updates remain immediate, with
+    /// AX observers supplementing window-server polling when available.
     private func attachIfNeeded() {
         guard let app = runningSettingsApplication() else {
+            presentationReadiness = SettingsWindowReadiness()
             finishTrackingIfNeededBecauseAppExited()
             return
         }
@@ -96,7 +99,17 @@ final class SettingsWindowTracker {
         hasActiveTrackingTarget = true
         missingAppPollCount = 0
 
-        updateFrameFromWindowServer(for: app.processIdentifier)
+        let window = windowServerWindow(for: app.processIdentifier)
+        if currentFrame == nil {
+            guard let frame = presentationReadiness.readyFrame(
+                window: window,
+                isActive: app.isActive && !app.isHidden && app.isFinishedLaunching,
+                at: ProcessInfo.processInfo.systemUptime
+            ) else { return }
+            publish(frame)
+        } else if let window {
+            publish(window.frame)
+        }
         guard AXIsProcessTrusted() else { return }
 
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
@@ -125,11 +138,7 @@ final class SettingsWindowTracker {
         updateCurrentFrame()
     }
 
-    /// Updates the current frame using Core Graphics window-server data.
-    /// This path does not need AX permission, so it acts as the initial or
-    /// fallback geometry source while System Settings is opening.
-    private func updateFrameFromWindowServer(for pid: pid_t) {
-        guard let frame = windowServerFrame(for: pid) else { return }
+    private func publish(_ frame: CGRect) {
         guard currentFrame != frame else { return }
         currentFrame = frame
         onFrameChange?(frame)
@@ -168,9 +177,7 @@ final class SettingsWindowTracker {
         else { return }
 
         let frame = appKitFrame(fromGlobalTopLeftFrame: CGRect(origin: position, size: size))
-        guard currentFrame != frame else { return }
-        currentFrame = frame
-        onFrameChange?(frame)
+        publish(frame)
     }
 
     /// Chooses the best AX window to track for System Settings.
@@ -293,8 +300,9 @@ final class SettingsWindowTracker {
     }
 
     /// Scans on-screen window-server entries for the System Settings process
-    /// and returns the largest visible layer-0 window as the tracked frame.
-    private func windowServerFrame(for pid: pid_t) -> CGRect? {
+    /// and returns the largest visible layer-0 window, including its identity
+    /// and opacity so initial presentation can wait for it to settle.
+    private func windowServerWindow(for pid: pid_t) -> SettingsWindowReadiness.Window? {
         guard
             let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
                 as? [[String: Any]]
@@ -326,14 +334,15 @@ final class SettingsWindowTracker {
                 let alpha = window[kCGWindowAlpha as String] as? Double ?? 1
                 return layer == 0 && alpha > 0
             }
-            .compactMap { window -> CGRect? in
-                guard let bounds = window[kCGWindowBounds as String] as? NSDictionary else { return nil }
-                guard let cgBounds = CGRect(dictionaryRepresentation: bounds) else { return nil }
+            .compactMap { window -> SettingsWindowReadiness.Window? in
+                guard let id = window[kCGWindowNumber as String] as? CGWindowID,
+                      let bounds = window[kCGWindowBounds as String] as? NSDictionary,
+                      let cgBounds = CGRect(dictionaryRepresentation: bounds) else { return nil }
                 let frame = appKitFrame(fromGlobalTopLeftFrame: cgBounds)
                 guard frame.width > 320, frame.height > 240 else { return nil }
-                return frame
+                return .init(id: id, frame: frame, alpha: window[kCGWindowAlpha as String] as? Double ?? 0)
             }
-            .max(by: { $0.width * $0.height < $1.width * $1.height })
+            .max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
 
         return bestMatch
     }

@@ -104,9 +104,9 @@ func closingPanelCancelsLaunchOverlay() {
 }
 
 @Test @MainActor
-func closingPanelCancelsWaitingFallback() async throws {
+func closingPanelWhileWaitingKeepsItHidden() async throws {
     let panel = FloatingDropPanel(controller: PermissionFlowController())
-    panel.show(at: CGRect(x: 100, y: 400, width: 100, height: 32))
+    panel.waitForSettings()
     panel.close()
     try await Task.sleep(for: .milliseconds(1200))
     #expect(!panel.isVisible)

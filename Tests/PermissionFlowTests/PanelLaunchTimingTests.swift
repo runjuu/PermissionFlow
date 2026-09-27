@@ -8,6 +8,21 @@ import Testing
 @MainActor
 struct PanelLaunchTimingTests {
     @Test
+    func waitingPanelStaysHiddenUntilSettingsIsReady() async throws {
+        let controller = PermissionFlowController()
+        let panel = FloatingDropPanel(controller: controller)
+        defer { panel.close() }
+        panel.waitForSettings()
+
+        // A slow Settings launch must not expose the panel on a fixed timeout.
+        try await Task.sleep(for: .milliseconds(1200))
+        let isVisible = panel.isVisible
+        let isComplete = controller.isPanelPresentationComplete
+        #expect(!isVisible)
+        #expect(!isComplete)
+    }
+
+    @Test
     func launchWaitsForFirstFrameBeforeStartingClock() async throws {
         // Reduced motion intentionally bypasses the launch overlay.
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }

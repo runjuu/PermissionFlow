@@ -87,6 +87,9 @@ public final class PermissionFlowController: ObservableObject {
         sourceFrameInScreen: CGRect? = nil
     ) {
         closeOtherActivePanelIfNeeded()
+        // A new pane may resize an already-open Settings window. Discard the
+        // previous session's destination before showPanel can use it.
+        tracker.stopTracking()
 
         rememberPreviousFrontmostApplication()
         endAuthorizationMonitoring()
@@ -118,8 +121,8 @@ public final class PermissionFlowController: ObservableObject {
             return
         }
 
-        if let sourceFrame = pendingLaunchSourceFrame {
-            panel.show(at: sourceFrame)
+        if pendingLaunchSourceFrame != nil {
+            panel.waitForSettings()
         } else {
             panel.center()
             panel.show()
@@ -207,16 +210,14 @@ public final class PermissionFlowController: ObservableObject {
     }
 
     private func bindTrackerCallbacks() {
+        // Tracker callbacks already run on the main actor. Deliver them inline
+        // so an old session cannot enqueue a frame for a later authorization.
         tracker.onFrameChange = { [weak self] frame in
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                self.presentPanel(self.panel, for: frame)
-            }
+            guard let self else { return }
+            self.presentPanel(self.panel, for: frame)
         }
         tracker.onTrackingEnded = { [weak self] in
-            Task { @MainActor [weak self] in
-                self?.closePanel()
-            }
+            self?.closePanel()
         }
     }
 

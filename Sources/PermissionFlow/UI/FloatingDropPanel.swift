@@ -22,7 +22,6 @@ final class FloatingDropPanel: NSPanel {
     /// Keeps the unfolding effect brief so the guidance becomes usable promptly.
     private let animationDuration: TimeInterval = 0.45
     private var launchOverlay: PanelLaunchAnimation?
-    private var waitingTimer: Timer?
     private var launchTimer: Timer?
     private var launchStartTime: CFTimeInterval = 0
     private var launchFromFrame = NSRect.zero
@@ -122,23 +121,12 @@ final class FloatingDropPanel: NSPanel {
         panelController?.isPanelPresentationComplete = true
     }
 
-    /// Waits for Settings geometry without showing a full-size panel at the button.
-    func show(at sourceFrameInScreen: CGRect) {
+    /// Keep the panel hidden until the tracker reports a settled Settings window.
+    /// A fixed timeout could reveal it halfway through a slow Settings launch.
+    func waitForSettings() {
         panelController?.isPanelPresentationComplete = false
         stopLaunchAnimation()
         orderOut(nil)
-        // Tracking can be unavailable (for example, before Accessibility is
-        // granted). Keep the guidance usable even without a destination frame.
-        let timer = Timer(timeInterval: 1, repeats: false) { [weak self] _ in
-            Task { @MainActor [weak self] in
-                guard let self, self.waitingTimer != nil else { return }
-                self.waitingTimer = nil
-                self.center()
-                self.show()
-            }
-        }
-        waitingTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
     }
 
     /// Unfurls a snapshot from the button while the live content keeps its final layout.
@@ -294,8 +282,6 @@ final class FloatingDropPanel: NSPanel {
     }
 
     private func stopLaunchAnimation() {
-        waitingTimer?.invalidate()
-        waitingTimer = nil
         launchTimer?.invalidate()
         launchTimer = nil
         isAnimatingLaunch = false
