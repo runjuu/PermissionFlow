@@ -150,15 +150,19 @@ private struct HeaderDirectionIcon: View {
                 do {
                     // Let the live panel settle after the launch overlay is removed.
                     try await Task.sleep(for: .milliseconds(180))
-                    for _ in 0..<2 {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            attentionOffset = -3
+                    while !Task.isCancelled {
+                        for _ in 0..<2 {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                attentionOffset = -3
+                            }
+                            try await Task.sleep(for: .milliseconds(200))
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                attentionOffset = 0
+                            }
+                            try await Task.sleep(for: .milliseconds(340))
                         }
-                        try await Task.sleep(for: .milliseconds(200))
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            attentionOffset = 0
-                        }
-                        try await Task.sleep(for: .milliseconds(340))
+                        // Leave a quiet interval between reminders.
+                        try await Task.sleep(for: .seconds(4))
                     }
                 } catch {
                     // The replacement task resets the offset when dragging,
